@@ -97,10 +97,24 @@ export function WalletDashboard({
         // Fetch balance and nonce
         setIsLoadingBalance(true);
         const balanceData = await fetchBalance(wallet.address);
-        setBalance(balanceData.balance);
-        setNonce(balanceData.nonce);
+        
+        // Check if RPC failed (negative balance indicates failure)
+        if (balanceData.balance < 0) {
+          setBalance(0);
+          setNonce(0);
+          toast({
+            title: "RPC Connection Failed",
+            description: "Failed to connect to RPC provider",
+            variant: "destructive",
+          });
+        } else {
+          setBalance(balanceData.balance);
+          setNonce(balanceData.nonce);
+        }
       } catch (error) {
         console.error('Failed to fetch balance:', error);
+        setBalance(0);
+        setNonce(0);
         toast({
           title: "Error",
           description: "Balance fetch failed",
@@ -121,9 +135,12 @@ export function WalletDashboard({
             type: tx.from?.toLowerCase() === wallet.address.toLowerCase() ? 'sent' : 'received'
           } as Transaction));
           setTransactions(transformedTxs);
+        } else {
+          setTransactions([]);
         }
       } catch (error) {
         console.error('Failed to fetch transaction history:', error);
+        setTransactions([]);
         toast({
           title: "Error",
           description: "History fetch failed",

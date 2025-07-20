@@ -99,12 +99,10 @@ export function Balance({ wallet, balance, encryptedBalance: propEncryptedBalanc
         setPendingTransfers([]);
       }
       
-      if (balanceData.balance >= 0) {
-        toast({
-          title: "Balance Updated",
-          description: "Balance has been refreshed successfully",
-        });
-      }
+      toast({
+        title: "Balance Updated",
+        description: "Balance has been refreshed successfully",
+      });
     } catch (error) {
       // Reset all balances to 0 when RPC fails
       onBalanceUpdate(0);
@@ -185,7 +183,7 @@ export function Balance({ wallet, balance, encryptedBalance: propEncryptedBalanc
           setPendingTransfers([]);
         });
     }
-  }, [wallet]);
+  }, [wallet, setEncryptedBalance]);
 
   const copyToClipboard = async (text: string, label: string) => {
     try {

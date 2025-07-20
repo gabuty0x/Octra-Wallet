@@ -386,6 +386,7 @@ export async function fetchBalance(address: string): Promise<BalanceResponse> {
       return { balance: -1, nonce: 0 };
     }
 
+    console.log('Balance fetched successfully:', { address, balance, nonce });
     return { balance, nonce };
   } catch (error) {
     console.error('Error fetching balance:', error);
