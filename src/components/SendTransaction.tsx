@@ -7,9 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Send, AlertTriangle, Wallet as WalletIcon, CheckCircle, ExternalLink, Copy, MessageSquare, Calculator } from 'lucide-react';
+import { Send, AlertTriangle, Wallet as WalletIcon, CheckCircle, ExternalLink, Copy, MessageSquare, Calculator, Loader2, XCircle } from 'lucide-react';
 import { Wallet } from '../types/wallet';
-import { fetchBalance, sendTransaction, createTransaction } from '../utils/api';
+import { fetchBalance, sendTransaction, createTransaction, getAddressInfo } from '../utils/api';
 import { useToast } from '@/hooks/use-toast';
 
 interface SendTransactionProps {
@@ -26,8 +26,52 @@ export function SendTransaction({ wallet, balance, nonce, onBalanceUpdate, onNon
   const [amount, setAmount] = useState('');
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isCheckingRecipient, setIsCheckingRecipient] = useState(false);
+  const [recipientInfo, setRecipientInfo] = useState<any>(null);
   const [result, setResult] = useState<{ success: boolean; hash?: string; error?: string } | null>(null);
   const { toast } = useToast();
+
+  // Check recipient when address changes
+  useEffect(() => {
+    const checkRecipient = async () => {
+      if (!recipientAddress || recipientAddress.length < 10) {
+        setRecipientInfo(null);
+        return;
+      }
+
+      if (!recipientAddress.startsWith('oct') || recipientAddress.length < 40) {
+        setRecipientInfo({ error: "Invalid address format" });
+        return;
+      }
+
+      if (recipientAddress === wallet?.address) {
+        setRecipientInfo({ error: "Cannot send to yourself" });
+        return;
+      }
+
+      if (!validateAddress(recipientAddress)) {
+        setRecipientInfo({ error: "Invalid address format" });
+        return;
+      }
+
+      setIsCheckingRecipient(true);
+      try {
+        const info = await getAddressInfo(recipientAddress);
+        if (info) {
+          setRecipientInfo(info);
+        } else {
+          setRecipientInfo({ error: "Address not found on network" });
+        }
+      } catch (error) {
+        setRecipientInfo({ error: "Failed to check recipient" });
+      } finally {
+        setIsCheckingRecipient(false);
+      }
+    };
+
+    const timeoutId = setTimeout(checkRecipient, 500);
+    return () => clearTimeout(timeoutId);
+  }, [recipientAddress, wallet?.address]);
 
   const validateAddress = (address: string) => {
     // Octra address validation (starts with 'oct' and has specific format)
@@ -247,6 +291,45 @@ export function SendTransaction({ wallet, balance, nonce, onBalanceUpdate, onNon
             onChange={(e) => setRecipientAddress(e.target.value)}
             className="font-mono"
           />
+          
+          {/* Recipient Status */}
+          {isCheckingRecipient && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Checking recipient...
+            </div>
+          )}
+          
+          {recipientInfo && !isCheckingRecipient && (
+            <div className="space-y-2">
+              {recipientInfo.error ? (
+                <div className="flex items-center gap-2 text-sm text-red-600">
+                  <XCircle className="h-4 w-4" />
+                  {recipientInfo.error}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span className="text-sm text-green-600">Valid recipient</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Balance: {recipientInfo.balance || '0'} OCT
+                  </div>
+                  {recipientInfo.has_public_key && (
+                    <div className="text-xs text-green-600">
+                      ✓ Has public key (can receive private transfers)
+                    </div>
+                  )}
+                  {!recipientInfo.has_public_key && (
+                    <div className="text-xs text-yellow-600">
+                      ⚠ No public key (cannot receive private transfers)
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Amount */}
@@ -374,7 +457,8 @@ export function SendTransaction({ wallet, balance, nonce, onBalanceUpdate, onNon
           onClick={handleSend}
           disabled={
             isSending || 
-            !validateAddress(recipientAddress) || 
+            !recipientInfo ||
+            recipientInfo.error ||
             !validateAmount(amount) || 
             totalCost > currentBalance ||
             Boolean(message && message.length > 1024)

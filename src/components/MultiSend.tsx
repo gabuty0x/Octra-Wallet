@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Users, Plus, Trash2, AlertTriangle, Wallet as WalletIcon, CheckCircle, ExternalLink, Copy, MessageSquare } from 'lucide-react';
+import { Users, Plus, Trash2, AlertTriangle, Wallet as WalletIcon, CheckCircle, ExternalLink, Copy, MessageSquare, XCircle } from 'lucide-react';
 import { Wallet } from '../types/wallet';
 import { fetchBalance, sendTransaction, createTransaction } from '../utils/api';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +16,8 @@ interface Recipient {
   address: string;
   amount: string;
   message: string;
+  isValidAddress?: boolean;
+  addressError?: string;
 }
 
 interface MultiSendProps {
@@ -63,11 +65,23 @@ export function MultiSend({ wallet, balance, nonce, onBalanceUpdate, onNonceUpda
 
   const updateRecipient = (index: number, field: keyof Recipient, value: string) => {
     const updated = recipients.map((recipient, i) => 
-      i === index ? { ...recipient, [field]: value } : recipient
+      i === index ? { 
+        ...recipient, 
+        [field]: value,
+        // Validate address when it changes
+        ...(field === 'address' ? {
+          isValidAddress: value ? validateAddress(value) : undefined,
+          addressError: value && !validateAddress(value) ? 'Invalid address format' : undefined
+        } : {})
+      } : recipient
     );
     setRecipients(updated);
   };
 
+  const validateAddress = (address: string) => {
+    const octAddressRegex = /^oct[1-9A-HJ-NP-Za-km-z]{44}$/;
+    return octAddressRegex.test(address);
+  };
 
   const validateRecipients = () => {
     for (const recipient of recipients) {
@@ -361,6 +375,22 @@ export function MultiSend({ wallet, balance, nonce, onBalanceUpdate, onNonceUpda
                       onChange={(e) => updateRecipient(index, 'address', e.target.value)}
                       className="font-mono"
                     />
+                    {/* Address Validation */}
+                    {recipient.address && (
+                      <div className="text-sm">
+                        {recipient.isValidAddress ? (
+                          <div className="flex items-center gap-2 text-green-600">
+                            <CheckCircle className="h-3 w-3" />
+                            Valid address
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-red-600">
+                            <XCircle className="h-3 w-3" />
+                            {recipient.addressError || 'Invalid address'}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -554,7 +584,13 @@ export function MultiSend({ wallet, balance, nonce, onBalanceUpdate, onNonceUpda
 
         <Button 
           onClick={handleSendMultiple}
-          disabled={isSending || !validateRecipients() || totalCost > currentBalance || recipients.some(r => r.message && r.message.length > 1024)}
+          disabled={
+            isSending || 
+            !validateRecipients() || 
+            totalCost > currentBalance || 
+            recipients.some(r => r.message && r.message.length > 1024) ||
+            recipients.some(r => r.address && !r.isValidAddress)
+          }
           className="w-full text-sm sm:text-base"
           size="lg"
         >
