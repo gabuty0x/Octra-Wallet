@@ -88,6 +88,17 @@ export function WalletDashboard({
   const [encryptedBalance, setEncryptedBalance] = useState<any>(null);
   const { toast } = useToast();
 
+  // Debug logging for balance states
+  useEffect(() => {
+    console.log('WalletDashboard balance state:', {
+      wallet: wallet?.address,
+      balance,
+      encryptedBalance,
+      isLoadingBalance,
+      isRefreshingData
+    });
+  }, [wallet, balance, encryptedBalance, isLoadingBalance, isRefreshingData]);
+
   // Initial data fetch when wallet is connected
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -101,6 +112,13 @@ export function WalletDashboard({
         // Check if RPC failed (negative balance indicates failure)
         if (balanceData.balance < 0) {
           setBalance(0);
+          setEncryptedBalance({
+            public: 0,
+            public_raw: 0,
+            encrypted: 0,
+            encrypted_raw: 0,
+            total: 0
+          });
           setNonce(0);
           toast({
             title: "RPC Connection Failed",
@@ -110,6 +128,7 @@ export function WalletDashboard({
         } else {
           setBalance(balanceData.balance);
           setNonce(balanceData.nonce);
+          console.log('Balance set successfully:', balanceData.balance);
         }
       } catch (error) {
         console.error('Failed to fetch balance:', error);
@@ -335,6 +354,7 @@ export function WalletDashboard({
 
   const handleBalanceUpdate = async (newBalance: number) => {
     setBalance(newBalance);
+    console.log('Balance updated in dashboard:', newBalance);
     // Also refresh nonce when balance is updated
     try {
       const balanceData = await fetchBalance(wallet.address);

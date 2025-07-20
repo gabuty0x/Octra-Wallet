@@ -30,9 +30,21 @@ export function Balance({ wallet, balance, encryptedBalance: propEncryptedBalanc
   const [showDecryptDialog, setShowDecryptDialog] = useState(false);
   const { toast } = useToast();
 
-  // Use prop encrypted balance if provided, otherwise use local state
-  const encryptedBalance = propEncryptedBalance || localEncryptedBalance;
+  // Always use prop encrypted balance if provided, otherwise use local state
+  const encryptedBalance = propEncryptedBalance !== undefined ? propEncryptedBalance : localEncryptedBalance;
   const setEncryptedBalance = onEncryptedBalanceUpdate || setLocalEncryptedBalance;
+
+  // Debug logging
+  useEffect(() => {
+    console.log('Balance component state:', {
+      wallet: wallet?.address,
+      balance,
+      encryptedBalance,
+      isLoading,
+      propEncryptedBalance,
+      localEncryptedBalance
+    });
+  }, [wallet, balance, encryptedBalance, isLoading, propEncryptedBalance, localEncryptedBalance]);
 
   const fetchWalletBalance = async () => {
     if (!wallet) return;
@@ -64,30 +76,36 @@ export function Balance({ wallet, balance, encryptedBalance: propEncryptedBalanc
       
       onBalanceUpdate(balanceData.balance);
       
+      console.log('Fetching encrypted balance for:', wallet.address);
       // Fetch encrypted balance
       try {
         const encData = await fetchEncryptedBalance(wallet.address, wallet.privateKey);
         if (encData) {
           setEncryptedBalance(encData);
+          console.log('Encrypted balance set:', encData);
         } else {
           // Reset encrypted balance to default values when fetch fails
-          setEncryptedBalance({
+          const defaultEncBalance = {
             public: balanceData.balance,
             public_raw: Math.floor(balanceData.balance * 1_000_000),
             encrypted: 0,
             encrypted_raw: 0,
             total: balanceData.balance
-          });
+          };
+          setEncryptedBalance(defaultEncBalance);
+          console.log('Set default encrypted balance:', defaultEncBalance);
         }
       } catch (encError) {
         console.error('Failed to fetch encrypted balance:', encError);
-        setEncryptedBalance({
+        const defaultEncBalance = {
           public: balanceData.balance,
           public_raw: Math.floor(balanceData.balance * 1_000_000),
           encrypted: 0,
           encrypted_raw: 0,
           total: balanceData.balance
-        });
+        };
+        setEncryptedBalance(defaultEncBalance);
+        console.log('Set fallback encrypted balance:', defaultEncBalance);
       }
       
       // Fetch pending private transfers
@@ -251,9 +269,9 @@ export function Balance({ wallet, balance, encryptedBalance: propEncryptedBalanc
               {isLoading ? (
                 <Skeleton className="h-8 w-32" />
               ) : (
-                <div className="flex items-center gap-x-2">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {balance !== null ? `${balance.toFixed(8)}` : '0.00000000'}
+                <div className="flex items-center gap-x-2" key={`balance-${balance}`}>
+                  <div className="text-2xl font-bold text-blue-600" title={`Balance: ${balance}`}>
+                    {balance !== null && balance !== undefined ? `${balance.toFixed(8)}` : '0.00000000'}
                   </div>
                   <Badge variant="secondary" className="text-xs font-bold mt-0.5">
                     OCT
@@ -271,9 +289,9 @@ export function Balance({ wallet, balance, encryptedBalance: propEncryptedBalanc
               {isLoading ? (
                 <Skeleton className="h-8 w-32" />
               ) : (
-                <div className="flex items-center gap-x-2">
-                  <div className="text-2xl font-bold text-yellow-600">
-                    {encryptedBalance ? `${encryptedBalance.encrypted.toFixed(8)}` : '0.00000000'}
+                <div className="flex items-center gap-x-2" key={`encrypted-${encryptedBalance?.encrypted}`}>
+                  <div className="text-2xl font-bold text-yellow-600" title={`Encrypted Balance: ${encryptedBalance?.encrypted}`}>
+                    {encryptedBalance && encryptedBalance.encrypted !== undefined ? `${encryptedBalance.encrypted.toFixed(8)}` : '0.00000000'}
                   </div>
                   <Badge variant="secondary" className="text-xs font-bold mt-0.5">
                     OCT

@@ -389,7 +389,7 @@ export async function fetchBalance(address: string): Promise<BalanceResponse> {
     console.log('Balance fetched successfully:', { address, balance, nonce });
     return { balance, nonce };
   } catch (error) {
-    console.error('Error fetching balance:', error);
+    console.error('Error fetching balance for', address, ':', error);
     // Return negative balance to indicate RPC failure
     return { balance: -1, nonce: 0 };
   }
@@ -420,6 +420,8 @@ export async function fetchEncryptedBalance(address: string, privateKey: string)
       console.error('Failed to parse encrypted balance response as JSON:', parseError);
       return null;
     }
+    
+    console.log('Encrypted balance API response:', data);
     
     return {
       public: parseFloat(data.public_balance?.split(' ')[0] || '0'),
